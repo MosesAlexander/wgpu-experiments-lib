@@ -19,6 +19,8 @@ struct State {
     // it gets droppe dafter it as the surface contains
     // unsafe references to the window's resources
     window: Window,
+    cur_x: f64,
+    cur_y: f64,
 }
 
 impl State {
@@ -89,7 +91,9 @@ impl State {
                 device,
                 queue,
                 config,
-                size
+                size,
+                cur_x: 0.0,
+                cur_y: 0.0,
             }
     }
 
@@ -130,9 +134,9 @@ impl State {
                     resolve_target: None, 
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color{
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 0.1 * (self.window().inner_size().width as f64 / self.cur_x),
+                            g: 0.2 * (self.window().inner_size().width as f64 / self.cur_x),
+                            b: 0.3 * (self.window().inner_size().width as f64 / self.cur_x),
                             a: 1.0,
                         }),
                         store: true,
@@ -231,6 +235,12 @@ pub async fn run() {
                     WindowEvent::ScaleFactorChanged { new_inner_size, ..} => {
                         state.resize(**new_inner_size);
                     },
+                    WindowEvent::CursorMoved { device_id, position, modifiers } => {
+                        println!("device_id: {:?}\nposition: {:?}",
+                            device_id, position);
+                        state.cur_x = position.x;
+                        state.cur_y = position.y;
+                    }
                     _ => {}
                 }
             },
