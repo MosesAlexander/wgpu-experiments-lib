@@ -236,8 +236,6 @@ pub async fn run() {
                         state.resize(**new_inner_size);
                     },
                     WindowEvent::CursorMoved { device_id, position, modifiers } => {
-                        println!("device_id: {:?}\nposition: {:?}",
-                            device_id, position);
                         state.cur_x = position.x;
                         state.cur_y = position.y;
                     }
