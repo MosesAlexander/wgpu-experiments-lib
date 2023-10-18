@@ -179,7 +179,7 @@ pub async fn run() {
     }
 
     #[cfg(target_arch = "wasm32")]
-    info!("BANANA POWER MOTHERFUCKER");
+    info!("WASM: Starting event loop");
 
     let mut state = State::new(window).await;
     event_loop.run(
@@ -187,7 +187,22 @@ pub async fn run() {
         move |event, _, control_flow| {
         // Closure has one match statement
         match event {
-            // First outer match case
+            Event::RedrawRequested(window_id) if window_id == state.window().id() => {
+                state.update();
+                match state.render() {
+                    Ok(_) => {}
+                    // Reconfigure the surface if lost
+                    Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
+                    // The system is out of memory, we should quit
+                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    // All other errors (Outdated, Timeout) should be resolved by the next frame
+                    Err(e) => eprintln!("{:?}", e),
+                }
+            }
+            Event::MainEventsCleared => {
+                // RedrawRequested will only trigger once, unless we manually request it
+                state.window().request_redraw();
+            }
             Event::WindowEvent {
                 ref event,
                 window_id
@@ -205,7 +220,7 @@ pub async fn run() {
                     } => {
                         *control_flow = ControlFlow::Exit;
                         #[cfg(target_arch = "wasm32")]
-                        info!("PRESSED ESC OH MY GOD I SAW THAT");
+                        info!("Pressed ESC");
                     },
                     WindowEvent::Resized(physical_size) => {
                         println!("physical_size: {:?}", physical_size);
