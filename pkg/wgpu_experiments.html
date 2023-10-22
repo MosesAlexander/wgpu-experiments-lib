@@ -1,25 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- <script type="module" src="http://127.0.0.1:8080/experiments.js"></script> -->
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learn WGPU</title>
-    <style>
-        canvas {
-            background-color: black;
-        }
-    </style>
-</head>
+  <head>
+    <meta charset="UTF-8" />
+    <title>WGPU Experiments</title>
+  </head>
 
-<body id="wasm-example">
-  <script type="module">
+  <body id="wasm-example">
+    <style>
+      canvas {
+        background-color: black;
+        float: left;
+      }
+    </style>
+
+    <style>
+      .button {
+        border: none;
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        margin: 4px 2px;
+        cursor: pointer;
+      }
+      .button1 {
+        background-color: #4caf50;
+        width: 50px;
+        height: 16px;
+        border-radius: 5px;
+        margin-right: 20px;
+        float: none;
+      }
+      .button {
+        font-weight: bold;
+      }
+    </style>
+    <p>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </p>
+    <script type="module">
       import init from "./wgpu_experiments_lib.js";
       init().then(() => {
-          console.log("WASM Loaded");
+        console.log("WASM Loaded");
       });
-  </script>
-</body>
-
+    </script>
+    <p class="button button1">Button 1</p>
+    <p class="button button1">Button 2</p>
+  </body>
 </html>
