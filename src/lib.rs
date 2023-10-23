@@ -10,6 +10,11 @@ use log::info;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+enum PipelineSelect {
+    Pipeline0,
+    Pipeline1,
+}
+
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -17,12 +22,14 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     // The window must be declared after the surface so
-    // it gets droppe dafter it as the surface contains
+    // it gets dropped after it as the surface contains
     // unsafe references to the window's resources
     window: Window,
     cur_x: f64,
     cur_y: f64,
     render_pipeline: wgpu::RenderPipeline,
+    render_pipeline2: wgpu::RenderPipeline,
+    pipeline_select: PipelineSelect,
 }
 
 impl State {
@@ -142,6 +149,42 @@ impl State {
             multiview: None,
         });
 
+        let render_pipeline2 = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main", // 1
+                buffers: &[],           // 2
+            },
+            fragment: Some(wgpu::FragmentState {
+                // 3
+                module: &shader,
+                entry_point: "fs2_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
         Self {
             window,
             surface,
@@ -152,6 +195,8 @@ impl State {
             cur_x: 0.0,
             cur_y: 0.0,
             render_pipeline,
+            render_pipeline2,
+            pipeline_select: PipelineSelect::Pipeline0,
         }
     }
 
@@ -206,7 +251,11 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
+            match self.pipeline_select {
+                PipelineSelect::Pipeline0 => render_pass.set_pipeline(&self.render_pipeline),
+                PipelineSelect::Pipeline1 => render_pass.set_pipeline(&self.render_pipeline2),
+            }
+
             render_pass.draw(0..3, 0..1);
         }
 
@@ -228,12 +277,12 @@ pub async fn run() {
         }
     }
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window: Window = WindowBuilder::new().build(&event_loop).unwrap();
 
     #[cfg(target_arch = "wasm32")]
     {
         use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(450, 400));
+        window.set_inner_size(PhysicalSize::new(800, 600));
 
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
@@ -295,6 +344,22 @@ pub async fn run() {
                                 #[cfg(target_arch = "wasm32")]
                                 info!("Pressed ESC");
                             }
+                            WindowEvent::KeyboardInput {
+                                input:
+                                    KeyboardInput {
+                                        state: ElementState::Pressed,
+                                        virtual_keycode: Some(VirtualKeyCode::Space),
+                                        ..
+                                    },
+                                ..
+                            } => match state.pipeline_select {
+                                PipelineSelect::Pipeline0 => {
+                                    state.pipeline_select = PipelineSelect::Pipeline1
+                                }
+                                PipelineSelect::Pipeline1 => {
+                                    state.pipeline_select = PipelineSelect::Pipeline0
+                                }
+                            },
                             WindowEvent::Resized(physical_size) => {
                                 println!("physical_size: {:?}", physical_size);
                                 #[cfg(target_arch = "wasm32")]
