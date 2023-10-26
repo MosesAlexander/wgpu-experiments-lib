@@ -2,6 +2,7 @@ mod texture;
 
 use bytemuck;
 use image::GenericImageView;
+use texture::Texture;
 use wgpu::util::DeviceExt;
 use winit::{
     dpi::PhysicalSize,
@@ -14,6 +15,11 @@ use winit::{
 use log::info;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+enum TextureSelect {
+    Texture0,
+    Texture1,
+}
 
 struct State {
     surface: wgpu::Surface,
@@ -33,7 +39,10 @@ struct State {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     diffuse_bind_group: wgpu::BindGroup,
+    diffuse_bind_group2: wgpu::BindGroup,
     diffuse_texture: texture::Texture,
+    diffuse_texture2: texture::Texture,
+    texture_select: TextureSelect,
 }
 
 #[repr(C)]
@@ -156,7 +165,9 @@ impl State {
 
         // Texture part
         let diffuse_bytes = include_bytes!("../res/blue-square.jpg");
+        let diffuse_bytes2 = include_bytes!("../res/brown-block.png");
         let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "blue block").unwrap();
+        let diffuse_texture2 = texture::Texture::from_bytes(&device, &queue, diffuse_bytes2, "blue block").unwrap();
 
         
         // A BindGroup describes a set of resources and how they can be accessed by a shader. We create a
@@ -199,6 +210,21 @@ impl State {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
+
+        let diffuse_bind_group2 = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture2.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture2.sampler),
                 },
             ],
             label: Some("diffuse_bind_group"),
@@ -283,7 +309,10 @@ impl State {
             index_buffer,
             num_indices,
             diffuse_bind_group,
+            diffuse_bind_group2,
             diffuse_texture,
+            diffuse_texture2,
+            texture_select: TextureSelect::Texture0,
         }
     }
 
@@ -340,7 +369,11 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            match self.texture_select {
+                TextureSelect::Texture0 =>  render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]),
+                TextureSelect::Texture1 =>  render_pass.set_bind_group(0, &self.diffuse_bind_group2, &[]),
+            }
+
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
@@ -440,7 +473,10 @@ pub async fn run() {
                                         ..
                                     },
                                 ..
-                            } => {}
+                            } => { match state.texture_select {
+                                TextureSelect::Texture0 => state.texture_select = TextureSelect::Texture1,
+                                TextureSelect::Texture1 => state.texture_select = TextureSelect::Texture0,
+                            }}
                             WindowEvent::Resized(physical_size) => {
                                 println!("physical_size: {:?}", physical_size);
                                 #[cfg(target_arch = "wasm32")]
