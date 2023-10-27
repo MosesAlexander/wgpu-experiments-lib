@@ -1,5 +1,5 @@
-use image::GenericImageView;
 use anyhow::*;
+use image::GenericImageView;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -12,7 +12,7 @@ impl Texture {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         bytes: &[u8],
-        label: &str
+        label: &str,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
         Self::from_image(device, queue, &img, Some(label))
@@ -25,8 +25,6 @@ impl Texture {
         label: Option<&str>,
     ) -> Result<Self> {
         let rgba = img.to_rgba8();
-        let dimensions = img.dimensions();
-
         let dimensions = img.dimensions();
 
         let size = wgpu::Extent3d {
@@ -69,8 +67,7 @@ impl Texture {
             size,
         );
 
-        let view =
-            texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -82,7 +79,10 @@ impl Texture {
             ..Default::default()
         });
 
-        Ok(Self {texture, view, sampler})
-
+        Ok(Self {
+            texture,
+            view,
+            sampler,
+        })
     }
 }

@@ -1,9 +1,16 @@
 // Vertex shader
 
+struct CameraUniform {
+    view_proj: mat4x4<f32>,
+};
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coods: vec2<f32>,
 }
+
+@group(1)@binding(0)
+var<uniform> camera: CameraUniform;
 
 struct VertexOutput {
     // analogous to GLSL's gl_Position variable
@@ -19,7 +26,7 @@ fn vs_main (
     // let is const but can infer its type
     var out: VertexOutput;
     out.tex_coods = model.tex_coods;
-    out.clip_position = vec4<f32>(model.position, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
 
     return out;
 }
