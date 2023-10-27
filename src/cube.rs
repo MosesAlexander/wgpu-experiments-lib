@@ -1,8 +1,8 @@
 use crate::Vertex;
 
 pub struct Cube {
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
+    pub vertices: Vec<f32>,
+    pub indices: Vec<u16>,
     pub center: (f32, f32, f32),
 }
 
@@ -237,7 +237,7 @@ impl Cube {
         ));
 
         // This is just hell, gotta find a generic way to produce cubes..
-        let indices_cube: Vec<u32> = vec![
+        let indices_cube: Vec<u16> = vec![
             0, 3, 9, 0, 9, 6, // first face
             12, 15, 21, 12, 21, 18, // second face
             2, 5, 17, 2, 17, 14, // third face

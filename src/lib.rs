@@ -1,6 +1,9 @@
 mod camera;
+mod cube;
 mod texture;
 mod vertex;
+
+use cube::Cube;
 
 use camera::{Camera, CameraController, CameraUniform};
 
@@ -57,6 +60,7 @@ struct State {
     last_cursor_y: f64,
     cursor_x_diff: f64,
     cursor_y_diff: f64,
+    cube: Cube,
 }
 impl State {
     async fn new(window: Window) -> Self {
@@ -290,21 +294,27 @@ impl State {
             multiview: None,
         });
 
+        let cube = Cube::new(0.3, (0.0, 0.0, 0.0));
+
         let vertex_buffer: wgpu::Buffer =
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
+                contents: bytemuck::cast_slice(cube.vertices.as_slice()),
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index buffer"),
-            contents: bytemuck::cast_slice(INDICES),
+            contents: bytemuck::cast_slice(cube.indices.as_slice()),
             usage: wgpu::BufferUsages::INDEX,
         });
 
+        /*
         let num_indices = INDICES.len() as u32;
         let num_vertices = VERTICES.len() as u32;
+        */
+        let num_indices = cube.indices.len() as u32;
+        let num_vertices = cube.vertices.len() as u32;
 
         let camera_controller = CameraController::new(0.2);
 
@@ -336,6 +346,7 @@ impl State {
             last_cursor_y: 300.0,
             cursor_x_diff: 0.0,
             cursor_y_diff: 0.0,
+            cube,
         }
     }
 
