@@ -238,12 +238,12 @@ impl Cube {
 
         // This is just hell, gotta find a generic way to produce cubes..
         let indices_cube: Vec<u16> = vec![
-            0, 3, 9, 0, 9, 6, // first face
+            9, 3, 0, 6, 9, 0, // first face
             12, 15, 21, 12, 21, 18, // second face
             2, 5, 17, 2, 17, 14, // third face
             8, 11, 23, 8, 23, 20, // fourth face
             1, 13, 19, 1, 19, 7, // fifth face
-            4, 16, 22, 4, 22, 10, // sixth face
+            22, 16, 4, 10, 22, 4, // sixth face
         ];
 
         Cube {
