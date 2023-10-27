@@ -1,4 +1,10 @@
+mod camera;
 mod texture;
+mod vertex;
+
+use camera::{Camera, CameraController, CameraUniform};
+
+use vertex::{Vertex, INDICES, VERTICES};
 
 use bytemuck;
 use image::GenericImageView;
@@ -20,120 +26,6 @@ enum TextureSelect {
     Texture0,
     Texture1,
 }
-
-struct Camera {
-    eye: cgmath::Point3<f32>,
-    target: cgmath::Point3<f32>,
-    up: cgmath::Vector3<f32>,
-    aspect: f32,
-    fovy: f32,
-    znear: f32,
-    zfar: f32,
-}
-
-struct CameraController {
-    speed: f32,
-    is_forward_pressed: bool,
-    is_backward_pressed: bool,
-    is_left_pressed: bool,
-    is_right_pressed: bool,
-}
-
-impl CameraController {
-    fn new(speed: f32) -> Self {
-        Self {
-            speed,
-            is_backward_pressed: false,
-            is_forward_pressed: false,
-            is_left_pressed: false,
-            is_right_pressed: false,
-        }
-    }
-
-    fn process_events(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
-    }
-
-    fn update_camera(&self, camera: &mut Camera) {
-        use cgmath::InnerSpace;
-        let forward = camera.target - camera.eye;
-        let forward_norm = forward.normalize();
-        let forward_mag = forward.magnitude();
-
-        // Prevents glitching when camera gets too close to the center
-        // of the scene
-        if self.is_forward_pressed && forward_mag > self.speed {
-            camera.eye += forward_norm * self.speed;
-        }
-        if self.is_backward_pressed {
-            camera.eye -= forward_norm * self.speed;
-        }
-
-        let right = forward_norm.cross(camera.up);
-
-        let forward = camera.target - camera.eye;
-        let forward_mag = forward.magnitude();
-
-        if self.is_right_pressed {
-            camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
-        }
-        if self.is_left_pressed {
-            camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
-        }
-    }
-}
-
-// WGPU uses DirectX and Metal coordinate systems with z axis going from 0.0 to +1.0
-// cgmath uses OpenGL coordinate system, this matrix transforms from OpenGL coords to WGPU
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.5,
-    0.0, 0.0, 0.0, 1.0,
-);
-
-impl Camera {
-    fn build_view_projection_matrix(&self) -> cgmath::Matrix4<f32> {
-        let view = cgmath::Matrix4::look_at_rh(self.eye, self.target, self.up);
-        //let ortho = cgmath::ortho(left, right, bottom, top, near, far);
-        let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
-
-        return OPENGL_TO_WGPU_MATRIX * proj * view;
-    }
-}
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -144,8 +36,6 @@ struct State {
     // it gets dropped after it as the surface contains
     // unsafe references to the window's resources
     window: Window,
-    cur_x: f64,
-    cur_y: f64,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     num_vertices: u32,
@@ -161,77 +51,13 @@ struct State {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     camera_controller: CameraController,
+    current_cursor_x: f64,
+    current_cursor_y: f64,
+    last_cursor_x: f64,
+    last_cursor_y: f64,
+    cursor_x_diff: f64,
+    cursor_y_diff: f64,
 }
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-impl Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
-}
-
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-0.5, 0.5, 0.0],
-        tex_coords: [0.0, 0.0],
-    }, // A
-    Vertex {
-        position: [0.5, 0.5, 0.0],
-        tex_coords: [1.0, 0.0],
-    }, // B
-    Vertex {
-        position: [0.5, -0.5, 0.0],
-        tex_coords: [1.0, 1.0],
-    }, // C
-    Vertex {
-        position: [-0.5, -0.5, 0.0],
-        tex_coords: [0.0, 1.0],
-    }, // D
-];
-
-const INDICES: &[u16] = &[0, 3, 1, 1, 3, 2];
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct CameraUniform {
-    // Convert cgmath Matrix4s into a 4x4 f32 array
-    view_proj: [[f32; 4]; 4],
-}
-
-impl CameraUniform {
-    fn new() -> Self {
-        use cgmath::SquareMatrix;
-        Self {
-            view_proj: cgmath::Matrix4::identity().into(),
-        }
-    }
-
-    fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix().into();
-    }
-}
-
 impl State {
     async fn new(window: Window) -> Self {
         let size = window.inner_size();
@@ -489,8 +315,6 @@ impl State {
             queue,
             config,
             size,
-            cur_x: 0.0,
-            cur_y: 0.0,
             render_pipeline,
             vertex_buffer,
             num_vertices,
@@ -506,6 +330,12 @@ impl State {
             camera_buffer,
             camera_bind_group,
             camera_controller,
+            current_cursor_x: 0.0,
+            current_cursor_y: 0.0,
+            last_cursor_x: 400.0,
+            last_cursor_y: 300.0,
+            cursor_x_diff: 0.0,
+            cursor_y_diff: 0.0,
         }
     }
 
@@ -557,9 +387,9 @@ impl State {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1 * (self.window().inner_size().width as f64 / self.cur_x),
-                            g: 0.2 * (self.window().inner_size().width as f64 / self.cur_x),
-                            b: 0.3 * (self.window().inner_size().width as f64 / self.cur_x),
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: true,
@@ -688,7 +518,6 @@ pub async fn run() {
                                 }
                             },
                             WindowEvent::Resized(physical_size) => {
-                                println!("physical_size: {:?}", physical_size);
                                 #[cfg(target_arch = "wasm32")]
                                 info!("physical_size: {:?}", physical_size);
                                 state.resize(*physical_size);
@@ -701,8 +530,12 @@ pub async fn run() {
                                 position,
                                 modifiers,
                             } => {
-                                state.cur_x = position.x;
-                                state.cur_y = position.y;
+                                state.current_cursor_x = position.x;
+                                state.current_cursor_y = position.y;
+                                state.cursor_x_diff = state.last_cursor_x - state.current_cursor_x;
+                                state.cursor_y_diff = state.last_cursor_y - state.current_cursor_y;
+                                state.last_cursor_x = state.current_cursor_x;
+                                state.last_cursor_y = state.current_cursor_y;
                             }
                             _ => {}
                         }
