@@ -2,6 +2,7 @@ mod camera;
 mod cube;
 mod texture;
 mod vertex;
+mod world;
 
 use cube::Cube;
 
